@@ -18,7 +18,15 @@ The imported category is tracked by ID and may be renamed. Ordinary API clients 
 
 Deleted upstream issues and releases are **not** removed locally. Removing a repository from configuration stops future syncing without deleting its existing content. Keep the hooks installed if you want imported issue protections to remain active.
 
-Imports suppress BugStage notifications. No emails are sent for copied releases or issues. New native activity follows the instance's existing notification settings.
+Imports are silent by default. New native activity follows the instance's existing notification settings.
+
+### Release notifications
+
+With `notify_new_releases: true`, the first successful run for each repository establishes a silent baseline. Later runs notify only when creating a release published after that baseline. Existing releases, edits, historical releases discovered later, and imported issues never generate notifications. After a successful sync with the option disabled, re-enabling establishes a new silent baseline.
+
+Alerts are created transactionally alongside the release and its mapping, once per subscribed user. Only project/channel subscriptions count; GitHub `@mentions` do not notify matching local usernames. Subscribers with email disabled still get an in-app notification. BugStage sends batched email for unread notifications every ten minutes, only to verified accounts with email notifications enabled. No SMTP is configured by this integration.
+
+Stopping the schedule does not itself reset the baseline. Removing the policy or mappings from the private state collection is unsupported.
 
 ## Markdown
 

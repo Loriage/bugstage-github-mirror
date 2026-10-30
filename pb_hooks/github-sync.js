@@ -11,6 +11,9 @@ function validateConfig(value) {
     if (!value || typeof value.schedule_enabled !== "boolean" || !Array.isArray(value.repositories)) {
         throw new Error("Expected schedule_enabled and a repositories array");
     }
+    if (value.notify_new_releases !== undefined && typeof value.notify_new_releases !== "boolean") {
+        throw new Error("notify_new_releases must be a boolean");
+    }
     const sources = {}, destinations = {};
     for (const entry of value.repositories) {
         const source = sourceName(entry.source).toLowerCase();
@@ -192,7 +195,29 @@ function ensureCategory(app, project) {
     saveState(app, "category-id:" + record.id, {project: project.id});
     return record;
 }
-function upsert(app, source, kind, item, values) {
+function shouldNotifyRelease(enabled, policy, release) {
+    return enabled === true && !!policy && policy.enabled === true &&
+        Number.isFinite(Date.parse(policy.since)) && Date.parse(release.published_at) > Date.parse(policy.since);
+}
+function createReleaseAlerts(app, release) {
+    const channel = app.findRecordById("channels", release.getString("channel"));
+    const repository = app.findRecordById("repositories", channel.getString("repository"));
+    if (repository.getBool("private")) throw new Error("Release notifications require a public destination");
+    for (let offset = 0; ; offset += 200) {
+        const preferences = app.findRecordsByFilter("notificationSettings",
+            "projects:each ?= {:project} || channels:each ?= {:channel}", "id", 200, offset,
+            {project: repository.getString("project"), channel: channel.id});
+        for (const settings of preferences) {
+            const user = settings.getString("user");
+            if (user === botId() || first(app, "releaseNotifications", "user={:user} && release={:release}", {user, release: release.id})) continue;
+            const alert = new Record(app.findCollectionByNameOrId("releaseNotifications"));
+            alert.load({user, release: release.id, processed: !settings.getBool("emailNotifications")});
+            app.save(alert);
+        }
+        if (preferences.length < 200) break;
+    }
+}
+function upsert(app, source, kind, item, values, notifyOnCreate) {
     const name = kind + ":" + source + ":" + item.id;
     const createdAt = date(kind === "issue" ? item.created_at : item.published_at);
     const digest = $security.sha256(JSON.stringify({values, createdAt, updatedAt: item.updated_at}));
@@ -210,6 +235,9 @@ function upsert(app, source, kind, item, values) {
         record.setRaw("created", createdAt.replace("T", " "));
         record.set("@noNotifications", true);
         tx.save(record);
+        // Use native notification records, but only explicit project/channel
+        // subscriptions. GitHub @mentions must not notify unrelated local users.
+        if (kind === "release" && outcome === "created" && notifyOnCreate) createReleaseAlerts(tx, record);
         if (kind === "issue") {
             // The native create hook sets lastActivity to now; restore the source date.
             record.set("lastActivity", date(item.updated_at));
@@ -221,7 +249,7 @@ function upsert(app, source, kind, item, values) {
     });
     return outcome;
 }
-function syncRepository(app, cfg, budget) {
+function syncRepository(app, cfg, budget, notifyNewReleases) {
     const source = sourceName(cfg.source);
     const project = first(app, "projects", "name={:name}", {name: cfg.project});
     if (!project) throw new Error("Target project is missing");
@@ -235,13 +263,16 @@ function syncRepository(app, cfg, budget) {
     const channel = first(app, "channels", "repository={:id} && name='default'", {id: repo.id});
     if (!channel) throw new Error("Default release channel is missing");
     const counts = {releases: releases.length, issues: issues.length, created: 0, updated: 0, unchanged: 0};
+    const policyKey = "release-notification-policy:" + source;
+    const policy = state(app, policyKey);
     for (const release of releases) {
         if (typeof release.tag_name !== "string" || !release.tag_name || release.tag_name.length > 100) throw new Error("Unsupported release tag");
         const old = first(app, "releases", "channel.repository={:repo} && tag={:tag}", {repo: repo.id, tag: release.tag_name});
         const mapping = state(app, "release:" + source + ":" + release.id);
         if (old && (!mapping || mapping.target !== old.id)) throw new Error("Existing local release conflicts with GitHub tag " + release.tag_name);
         const outcome = upsert(app, source, "release", release, {channel: channel.id, tag: release.tag_name, draft: false,
-            content: releaseContent(source, release), meta: {github: {id: release.id, url: release.html_url, prerelease: !!release.prerelease}}});
+            content: releaseContent(source, release), meta: {github: {id: release.id, url: release.html_url, prerelease: !!release.prerelease}}},
+            shouldNotifyRelease(notifyNewReleases, policy, release));
         counts[outcome]++;
     }
     for (const issue of issues) {
@@ -257,6 +288,13 @@ function syncRepository(app, cfg, budget) {
             title: ("[GitHub #" + issue.number + "] " + issue.title).slice(0, 300), content: issueContent(source, issue),
             closed: issue.state === "closed", locked: true, private: false, labels: labelIds});
         counts[outcome]++;
+    }
+    // The first successful run after enabling establishes a silent baseline.
+    // Re-enabling after a disabled sync starts a fresh baseline, without catch-up mail.
+    if (notifyNewReleases && (!policy || !policy.enabled)) {
+        saveState(app, policyKey, {enabled: true, since: new Date().toISOString()});
+    } else if (!notifyNewReleases && policy && policy.enabled) {
+        saveState(app, policyKey, {enabled: false});
     }
     return {source: source, status: "ok", checkedAt: new Date().toISOString(), counts: counts};
 }
@@ -282,7 +320,7 @@ function run(app, options) {
         for (const entry of entries) {
             const source = sourceName(entry.source);
             let result;
-            try { result = syncRepository(app, entry, budget); }
+            try { result = syncRepository(app, entry, budget, cfg.notify_new_releases === true); }
             catch (error) { result = {source: source, status: "error", checkedAt: new Date().toISOString(), error: String(error)}; }
             saveState(app, "repo:" + source, result);
             results.push(result);
@@ -320,4 +358,4 @@ function guardCategory(e) {
     }
     return e.next();
 }
-module.exports = {config, validateConfig, run, status, guard, guardCategory, botId, sourceName, releaseContent, issueContent, githubUrl, upsert, header, setup, ensureCategory, getGithub, githubPages};
+module.exports = {config, validateConfig, run, status, guard, guardCategory, botId, sourceName, releaseContent, issueContent, githubUrl, upsert, header, setup, ensureCategory, getGithub, githubPages, shouldNotifyRelease};

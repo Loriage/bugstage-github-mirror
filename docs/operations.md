@@ -13,6 +13,8 @@ docker compose restart bugstage mirror
 
 Setup creates missing public destinations and their GitHub links without replacing existing project descriptions. It refuses to change an existing private repository's visibility. It preserves the existing worker SSH key and administrator credentials. The explicit `default_branch` is used for the destination's symbolic HEAD; update it if the upstream default branch changes.
 
+`scripts/configure.py` preserves existing schedule and release-notification choices when regenerating metadata configuration.
+
 Configuration is validated before running. Only `https://github.com/OWNER/REPO.git` sources with `private: false` are supported. Credentials embedded in URLs, duplicate sources, and duplicate destinations are rejected.
 
 ## Use the Git worker with an existing instance

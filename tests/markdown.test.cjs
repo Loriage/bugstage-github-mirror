@@ -74,4 +74,16 @@ test('config rejects private, duplicate and ambiguous destinations', () => {
     assert.throws(() => sync.validateConfig({schedule_enabled:true,repositories:[{...entry,private:true}]}));
     assert.throws(() => sync.validateConfig({schedule_enabled:true,repositories:[entry,entry]}));
     assert.throws(() => sync.validateConfig({schedule_enabled:true,repositories:[{...entry,project:'../app'}]}));
+    assert.throws(() => sync.validateConfig({schedule_enabled:true,notify_new_releases:'true',repositories:[entry]}));
+});
+test('release notifications require opt-in and a completed baseline, never older publications', () => {
+    const policy = {enabled:true, since:'2026-01-01T00:00:00Z'};
+    const fresh = {published_at:'2026-01-02T00:00:00Z'};
+    assert.equal(sync.shouldNotifyRelease(false, policy, fresh), false);
+    assert.equal(sync.shouldNotifyRelease(true, null, fresh), false);
+    assert.equal(sync.shouldNotifyRelease(true, {enabled:false}, fresh), false);
+    assert.equal(sync.shouldNotifyRelease(true, policy, {published_at:policy.since}), false);
+    assert.equal(sync.shouldNotifyRelease(true, policy, {published_at:'2020-01-01T00:00:00Z'}), false);
+    assert.equal(sync.shouldNotifyRelease(true, {enabled:true,since:'invalid'}, fresh), false);
+    assert.equal(sync.shouldNotifyRelease(true, policy, fresh), true);
 });

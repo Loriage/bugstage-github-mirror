@@ -1,5 +1,6 @@
 {
   "schedule_enabled": true,
+  "notify_new_releases": false,
   "repositories": [
     {
       "source": "https://github.com/your-org/your-project.git",

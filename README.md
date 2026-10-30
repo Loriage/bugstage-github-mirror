@@ -16,7 +16,7 @@ Tested with **BugStage 0.1.0-rc.3 / PocketBase 0.41.1**. BugStage is still a rel
 | GitHub references | `#123` and `owner/repo#123` in imported text link back to GitHub. Code and existing links retain their meaning. |
 | Existing native discussions | Continue to work normally. Imported issues are read-only and point visitors to GitHub to reply. |
 
-Release and issue sync runs at minutes **17 and 47 of each hour**. Repeated runs update existing records without creating duplicates or sending import notifications.
+Release and issue sync runs at minutes **17 and 47 of each hour**. Repeated runs update existing records without creating duplicates. Imports are silent by default; optional notifications can announce newly published releases to subscribers after a silent baseline sync.
 
 This is an additive mirror, not a full backup. Comments, pull requests, reactions, release binaries, and Git LFS objects are not copied. Deleted upstream items are retained. Large release notes become a plain-text excerpt with a link to the full version. See [behavior and limits](https://github.com/Loriage/bugstage-github-mirror/blob/main/docs/behavior.md).
 
@@ -31,6 +31,10 @@ This is an additive mirror, not a full backup. Comments, pull requests, reaction
 The hooks create their own private `githubSyncState` collection and a non-login `github-mirror` attribution account. They do not configure OAuth, SMTP, site branding, or general project-creation permissions.
 
 This installs **metadata sync**. For Git replication as well, use the worker described in [operations](https://github.com/Loriage/bugstage-github-mirror/blob/main/docs/operations.md), or the fresh Docker installation below.
+
+## Optional release notifications
+
+Set `"notify_new_releases": true` in `pb_hooks/github-sync.config.json` to notify project/channel subscribers of new releases. The first successful sync establishes a silent baseline; historical releases, issue imports, edits, and repeat runs stay silent. Notifications respect each user's email preference. BugStage batches unread email notifications every ten minutes. See [notification behavior](https://github.com/Loriage/bugstage-github-mirror/blob/main/docs/behavior.md#release-notifications).
 
 ## Fresh Docker installation
 

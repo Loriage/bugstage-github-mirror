@@ -1,5 +1,6 @@
 """Exercise real BugStage hooks and API rules in a uniquely named disposable container."""
 import json
+import datetime
 import os
 from pathlib import Path
 import secrets
@@ -97,6 +98,39 @@ def main():
             assert current['category']==category['id']
             for collection in ['releaseNotifications','discussionNotifications','commentNotifications']:
                 assert good('GET','/api/collections/'+collection+'/records?perPage=1')['totalItems']==0
+
+            # Notification opt-in establishes a silent baseline, then alerts only
+            # project/channel subscribers for new releases. No SMTP is configured.
+            subscribers = {}
+            for name, subscription, email in [('release-subscriber','channels',True),('release-inapp','projects',False),('release-unsubscribed',None,True)]:
+                secret=secrets.token_urlsafe(32)
+                user=good('POST','/api/collections/users/records',{'username':name,'email':name+'@example.invalid','password':secret,'passwordConfirm':secret})
+                subscribers[name]=user['id']
+                prefs=next(p for p in good('GET','/api/collections/notificationSettings/records?perPage=100')['items'] if p['user']==user['id'])
+                payload={'emailNotifications':email}
+                if subscription: payload[subscription]=[release['channel'] if subscription=='channels' else project['id']]
+                good('PATCH','/api/collections/notificationSettings/records/'+prefs['id'],payload)
+            good('POST','/api/mirror-test/run',{'notify':True})
+            assert good('GET','/api/collections/releaseNotifications/records?perPage=1')['totalItems']==0
+            good('POST','/api/mirror-test/run',{'notify':True,'extraRelease':{'id':701,'published_at':'2020-01-02T03:04:05Z'}})
+            assert good('GET','/api/collections/releaseNotifications/records?perPage=1')['totalItems']==0
+            publication=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(days=1)).isoformat()
+            fresh={'id':702,'published_at':publication}
+            good('POST','/api/mirror-test/run',{'notify':True,'extraRelease':fresh,'extraIssue':True})
+            alerts=good('GET','/api/collections/releaseNotifications/records?perPage=100')['items']
+            assert len(alerts)==3,alerts  # original maintainer + the two opted-in accounts
+            assert not any(a['user']==subscribers['release-unsubscribed'] for a in alerts)
+            assert next(a for a in alerts if a['user']==subscribers['release-inapp'])['processed'] is True
+            assert next(a for a in alerts if a['user']==subscribers['release-subscriber'])['processed'] is False
+            for update in [fresh,{**fresh,'body':'Updated notes'}, {**fresh,'body':'Updated notes'}]:
+                good('POST','/api/mirror-test/run',{'notify':True,'extraRelease':update})
+                assert good('GET','/api/collections/releaseNotifications/records?perPage=1')['totalItems']==3
+            assert good('GET','/api/collections/discussionNotifications/records?perPage=1')['totalItems']==0
+            good('POST','/api/mirror-test/run',{'notify':False,'extraRelease':{'id':703,'published_at':publication}})
+            good('POST','/api/mirror-test/run',{'notify':True,'extraRelease':{'id':704,'published_at':publication}})
+            assert good('GET','/api/collections/releaseNotifications/records?perPage=1')['totalItems']==3
+            good('POST','/api/mirror-test/run',{'notify':True,'extraRelease':{'id':705,'published_at':publication}})
+            assert good('GET','/api/collections/releaseNotifications/records?perPage=1')['totalItems']==6
             for role in ['visitor','maintainer']:
                 secret=secrets.token_urlsafe(32)
                 user=good('POST','/api/collections/users/records',{'username':role,'email':role+'@example.invalid','password':secret,'passwordConfirm':secret,'verified':True})
@@ -124,7 +158,7 @@ def main():
             assert 'rate limit' in limited['repositories'][0]['error']
             cooldown=good('POST','/api/mirror-test/run',{'mode':'open'})
             assert cooldown['requests']==0 and cooldown['repositories'][0]['status']=='error'
-            print('PASS: real JSVM, first import, cache, idempotence, state transitions, dates, Markdown, renamed categories, API permissions, native participation, notifications, private sources, rate-limit cooldown.')
+            print('PASS: real JSVM, first import, cache, idempotence, state transitions, dates, Markdown, renamed categories, API permissions, native participation, opt-in release notifications, subscription and email preferences, no local mention alerts, silent history/issues/updates, re-enable baseline, private sources, rate-limit cooldown.')
         finally:
             if started:
                 docker('rm','-f',name)

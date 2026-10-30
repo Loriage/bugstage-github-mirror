@@ -52,10 +52,13 @@ def main():
             json.dump({'email': args.admin_email, 'password': secrets.token_urlsafe(32)}, stream)
         secret.chmod(0o600)
         print('Generated administrator credentials in .secrets/admin.json (mode 0600). Keep this file private.')
-    config = {'schedule_enabled': True, 'repositories': [
+    config_file = ROOT / 'pb_hooks/github-sync.config.json'
+    previous = json.loads(config_file.read_text()) if config_file.exists() else {}
+    config = {'schedule_enabled': previous.get('schedule_enabled', True),
+              'notify_new_releases': previous.get('notify_new_releases', False), 'repositories': [
         {key: entry[key] for key in ['source', 'project', 'repository', 'private']} for entry in entries
     ]}
-    (ROOT / 'pb_hooks/github-sync.config.json').write_text(json.dumps(config, indent=2) + '\n')
+    config_file.write_text(json.dumps(config, indent=2) + '\n')
     print('Metadata sync configuration updated. Existing credentials were preserved.')
 
 
