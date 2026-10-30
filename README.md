@@ -18,7 +18,7 @@ Tested with **BugStage 0.1.0-rc.3 / PocketBase 0.41.1**. BugStage is still a rel
 
 Release and issue sync runs at minutes **17 and 47 of each hour**. Repeated runs update existing records without creating duplicates or sending import notifications.
 
-This is an additive mirror, not a full backup. Comments, pull requests, reactions, release binaries, and Git LFS objects are not copied. Deleted upstream items are retained. Large release notes become a plain-text excerpt with a link to the full version. See [behavior and limits](docs/behavior.md).
+This is an additive mirror, not a full backup. Comments, pull requests, reactions, release binaries, and Git LFS objects are not copied. Deleted upstream items are retained. Large release notes become a plain-text excerpt with a link to the full version. See [behavior and limits](https://github.com/Loriage/bugstage-github-mirror/blob/main/docs/behavior.md).
 
 ## Install on an existing BugStage instance
 
@@ -30,7 +30,7 @@ This is an additive mirror, not a full backup. Comments, pull requests, reaction
 
 The hooks create their own private `githubSyncState` collection and a non-login `github-mirror` attribution account. They do not configure OAuth, SMTP, site branding, or general project-creation permissions.
 
-This installs **metadata sync**. For Git replication as well, use the worker described in [operations](docs/operations.md), or the fresh Docker installation below.
+This installs **metadata sync**. For Git replication as well, use the worker described in [operations](https://github.com/Loriage/bugstage-github-mirror/blob/main/docs/operations.md), or the fresh Docker installation below.
 
 ## Fresh Docker installation
 
@@ -57,7 +57,7 @@ The site defaults to `http://127.0.0.1:8092`. Your generated administrator passw
 
 For a reverse proxy on another machine, set `BIND_ADDRESS` to the host's LAN address and set `PUBLIC_URL` to the HTTPS URL. The Git worker uses Docker's internal SSH port; no host SSH port is published.
 
-**Use this Compose recipe for a new instance.** It has its own project name and volumes. Do not point its initialization scripts at an existing instance's data volume. See [operations](docs/operations.md) for adding repositories, monitoring, upgrades, and recovery.
+**Use this Compose recipe for a new instance.** It has its own project name and volumes. Do not point its initialization scripts at an existing instance's data volume. See [operations](https://github.com/Loriage/bugstage-github-mirror/blob/main/docs/operations.md) for adding repositories, monitoring, upgrades, and recovery.
 
 ## Development
 
@@ -76,6 +76,6 @@ Integration tests use a uniquely named disposable container and fixture response
 
 ## License and credits
 
-MIT. Built for [BugStage](https://bugstage.dev/) by Gani Georgiev. The bundled Markdown renderer uses markdown-it and its dependencies; see [third-party notices](THIRD_PARTY_NOTICES.md).
+MIT. [BugStage](https://bugstage.dev/) is created by Gani Georgiev. The bundled Markdown renderer uses markdown-it and its dependencies; see [third-party notices](https://github.com/Loriage/bugstage-github-mirror/blob/main/THIRD_PARTY_NOTICES.md).
 
 Issues and contributions belong on [GitHub](https://github.com/Loriage/bugstage-github-mirror). The repository is also [mirrored on BugStage](https://git.nohit.dev/bugstage-github-mirror).
