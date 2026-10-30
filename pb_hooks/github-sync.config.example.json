@@ -1,0 +1,11 @@
+{
+  "schedule_enabled": true,
+  "repositories": [
+    {
+      "source": "https://github.com/your-org/your-project.git",
+      "project": "your-project",
+      "repository": "your-project",
+      "private": false
+    }
+  ]
+}

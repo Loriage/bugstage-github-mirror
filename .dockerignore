@@ -1,0 +1,8 @@
+.git
+node_modules
+.env
+.secrets
+.state
+__pycache__
+*.log
+pb_data

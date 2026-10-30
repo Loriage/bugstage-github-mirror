@@ -1,0 +1,11 @@
+node_modules/
+.env
+.secrets/
+.state/
+__pycache__/
+*.pyc
+*.log
+pb_data/
+pb_hooks/github-sync.config.json
+mirrors.json
+.DS_Store

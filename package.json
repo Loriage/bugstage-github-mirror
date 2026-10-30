@@ -1,0 +1,18 @@
+{
+  "name": "bugstage-github-mirror",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One-way public GitHub repository, release and issue mirrors for BugStage",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "test:python": "python3 -m unittest discover -s tests -p 'test_*.py'",
+    "test:integration": "python3 tests/integration/run.py"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "markdown-it": "15.0.3"
+  },
+  "engines": { "node": ">=22" }
+}

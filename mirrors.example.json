@@ -1,0 +1,11 @@
+[
+  {
+    "source": "https://github.com/your-org/your-project.git",
+    "project": "your-project",
+    "repository": "your-project",
+    "title": "Your project",
+    "description": "A public GitHub mirror.",
+    "default_branch": "main",
+    "private": false
+  }
+]

@@ -1,0 +1,81 @@
+name: bugstage-github-mirror
+
+x-common: &common
+  restart: unless-stopped
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp]
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+services:
+  bugstage:
+    <<: *common
+    cap_add: [DAC_READ_SEARCH]
+    image: bugstage-github-mirror:0.1.0
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: bugstage
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8092}:8090"
+    volumes:
+      - bugstage-data:/app/pb_data
+      - ./pb_hooks/github-sync.config.json:/app/pb_hooks/github-sync.config.json:ro
+    secrets: [admin_credentials]
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8090/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mirror:
+    <<: *common
+    image: bugstage-github-mirror-tools:0.1.0
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: tools
+    depends_on:
+      bugstage:
+        condition: service_healthy
+    volumes:
+      - mirror-state:/state
+      - ./mirrors.json:/config/mirrors.json:ro
+    environment:
+      SYNC_INTERVAL: "300"
+    healthcheck:
+      test: [CMD, python3, /opt/bugstage-tools/mirror.py, --health]
+      interval: 60s
+      timeout: 5s
+      retries: 2
+      start_period: 180s
+
+  setup:
+    image: bugstage-github-mirror-tools:0.1.0
+    profiles: [setup]
+    entrypoint: [python3, /opt/bugstage-tools/bootstrap.py]
+    depends_on:
+      bugstage:
+        condition: service_healthy
+    environment:
+      PUBLIC_URL: "${PUBLIC_URL:-http://127.0.0.1:8092}"
+    volumes:
+      - bugstage-data:/data
+      - mirror-state:/state
+      - ./mirrors.json:/config/mirrors.json:ro
+    secrets: [admin_credentials]
+
+volumes:
+  bugstage-data:
+  mirror-state:
+
+secrets:
+  admin_credentials:
+    file: ./.secrets/admin.json
